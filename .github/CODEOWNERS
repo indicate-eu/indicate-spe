@@ -1,0 +1,83 @@
+# INDICATE CODEOWNERS
+# 
+# Define code ownership for automatic reviewer assignment.
+# Each repository should customize this file for their specific team structure.
+#
+# Format: path/to/files @github-username @github-org/team-name
+
+# ==============================================================================
+# DEFAULT OWNERS
+# ==============================================================================
+
+# Default reviewers for all files
+*                           @indicate-eu/maintainers
+
+# ==============================================================================
+# DOCUMENTATION
+# ==============================================================================
+
+*.md                        @indicate-eu/documentation
+/docs/                      @indicate-eu/documentation
+
+# ==============================================================================
+# CODE BY LANGUAGE
+# ==============================================================================
+
+# Python code
+*.py                        @indicate-eu/python-developers
+requirements.txt            @indicate-eu/maintainers
+
+# JavaScript/TypeScript
+*.js                        @indicate-eu/frontend-developers
+*.jsx                       @indicate-eu/frontend-developers
+*.ts                        @indicate-eu/frontend-developers
+*.tsx                       @indicate-eu/frontend-developers
+package.json                @indicate-eu/maintainers
+
+# .NET code
+*.cs                        @indicate-eu/dotnet-developers
+*.csproj                    @indicate-eu/maintainers
+
+# ==============================================================================
+# CONFIGURATION & SECURITY
+# ==============================================================================
+
+# CI/CD workflows
+/.github/workflows/         @indicate-eu/devops
+
+# Security-sensitive files
+/config/                    @indicate-eu/cirt
+*.yml                       @indicate-eu/devops
+*.yaml                      @indicate-eu/devops
+
+# ==============================================================================
+# LICENSING
+# ==============================================================================
+
+LICENSE                     @indicate-eu/legal
+NOTICE                      @indicate-eu/legal
+
+# ==============================================================================
+# CUSTOMIZATION NOTES
+# ==============================================================================
+#
+# To customize this file for your repository:
+# 
+# 1. Request teams in for INDICATE GitHub organization:
+#    - @indicate-eu/maintainers
+#    - @indicate-eu/documentation
+#    - @indicate-eu/python-developers (if applicable)
+#    - @indicate-eu/frontend-developers (if applicable)
+#    - @indicate-eu/dotnet-developers (if applicable)
+#    - @indicate-eu/devops
+#    - @indicate-eu/security-team
+#    - @indicate-eu/legal
+#
+# 2. Request invitation of members to appropriate teams
+#
+# 3. Adjust paths and rules based on your repository structure
+#
+# 4. You can also use individual GitHub usernames:
+#    /special/path/    @username1 @username2
+#
+# ==============================================================================
