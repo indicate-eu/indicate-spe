@@ -1,0 +1,116 @@
+# =====================================================
+# INDICATE SPE: Broadsea Docker Compose
+# =====================================================
+# Components: Atlas DB, WebAPI, Atlas UI
+# OMOP CDM: Connects to existing indicate-postgres-omop
+# Based on: OHDSI Broadsea v3.5+
+# =====================================================
+
+services:
+  # =====================================================
+  # Atlas DB - WebAPI Metadata Database
+  # =====================================================
+  broadsea-atlasdb:
+    container_name: broadsea-atlasdb
+    image: ohdsi/broadsea-atlasdb:2.0.0
+    platform: linux/amd64
+    environment:
+      - POSTGRES_PASSWORD=mypass  # Default password (pre-initialized in image)
+    ports:
+      - "5433:5432"  # Different port to avoid conflict with existing PostgreSQL
+    volumes:
+      - atlasdb-postgres-data:/var/lib/postgresql/data
+    networks:
+      - indicate-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =====================================================
+  # WebAPI - REST API for OMOP CDM Operations
+  # =====================================================
+  broadsea-webapi:
+    container_name: broadsea-webapi
+    image: ohdsi/webapi:2.14.0
+    platform: linux/amd64
+    environment:
+      # WebAPI Metadata Database (Atlas DB)
+      - DATASOURCE_URL=jdbc:postgresql://broadsea-atlasdb:5432/postgres
+      - DATASOURCE_USERNAME=postgres
+      - DATASOURCE_PASSWORD=mypass
+      - DATASOURCE_OHDSI_SCHEMA=ohdsi
+      
+      # OMOP CDM Connection (existing database)
+      - DATASOURCE_CDM_URL=jdbc:postgresql://indicate-postgres-omop:5432/omop_cdm
+      - DATASOURCE_CDM_USERNAME=postgres
+      - DATASOURCE_CDM_PASSWORD=postgres
+      
+      # WebAPI Security (disabled for development)
+      - SECURITY_PROVIDER=DisabledSecurity
+      - SECURITY_ORIGIN=*
+      - SECURITY_SSL_ENABLED=false
+
+      # Hibernate/JPA Configuration
+      - SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT=org.hibernate.dialect.PostgreSQLDialect
+      - SPRING_JPA_PROPERTIES_HIBERNATE_DEFAULT_SCHEMA=ohdsi
+      - SPRING_BATCH_REPOSITORY_TABLEPREFIX=ohdsi.BATCH_
+      
+      # Flyway Migration
+      - FLYWAY_DATASOURCE_DRIVERCLASSNAME=org.postgresql.Driver
+      - FLYWAY_DATASOURCE_URL=jdbc:postgresql://broadsea-atlasdb:5432/postgres
+      - FLYWAY_DATASOURCE_USERNAME=postgres
+      - FLYWAY_DATASOURCE_PASSWORD=mypass
+      - FLYWAY_LOCATIONS=classpath:db/migration/postgresql
+      - FLYWAY_BASELINE_ON_MIGRATE=true
+      - FLYWAY_SCHEMAS=ohdsi
+      - FLYWAY_PLACEHOLDERS_ohdsiSchema=ohdsi
+      
+    ports:
+      - "8080:8080"
+    networks:
+      - indicate-network
+    depends_on:
+      broadsea-atlasdb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/8080; echo -e \"GET /WebAPI/info HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n\" >&3; timeout 5 cat <&3 | grep -q 200; exec 3>&-'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # =====================================================
+  # Atlas - Web UI for Cohort Building
+  # =====================================================
+  broadsea-atlas:
+    container_name: broadsea-atlas
+    image: ohdsi/atlas:2.13.0
+    platform: linux/amd64
+    environment:
+      - WEBAPI_URL=http://localhost:8081/WebAPI/
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./broadsea/atlas-nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - indicate-network
+    depends_on:
+      broadsea-webapi:
+        condition: service_healthy
+
+# =====================================================
+# Networks
+# =====================================================
+networks:
+  indicate-network:
+    name: indicate-network
+    external: true  # Network created by postgres-compose.yml
+
+# =====================================================
+# Volumes
+# =====================================================
+volumes:
+  atlasdb-postgres-data:
+    name: broadsea-atlasdb-data
