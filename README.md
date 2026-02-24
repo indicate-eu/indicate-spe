@@ -114,7 +114,7 @@ git clone <repository-url> .
 | 6 | LOINC | Logical Observation Identifiers Names and Codes |
 | 1 | SNOMED | Systematic Nomenclature of Medicine - Clinical Terms |
 
-3. Place the downloaded `vocabulary_download_v5_*.zip` file in the project root directory
+3. Extract the vocabulary bundle and copy the CSV files into the `vocabularies/` directory in the project root
 
 ---
 
@@ -127,19 +127,25 @@ The fastest way to get a fully operational system:
 ```bash
 cd ~/indicate-spe
 
-# Ensure vocabulary file is present
-ls -lh vocabulary_download_v5*.zip
-
 # Make scripts executable
 chmod +x scripts/*.sh
 
-# Deploy everything (15-20 minutes)
-./scripts/deploy-complete.sh
+# Step 1: Start PostgreSQL OMOP CDM
+docker compose -f postgres-compose.yml up -d
+
+# Step 2: Load vocabulary into PostgreSQL (10 minutes)
+bash ./scripts/load-vocabulary.sh
+
+# Step 3: Generate 100 synthetic ICU patients (5-10 minutes)
+bash ./scripts/generate-icu-data.sh
+
+# Step 4: Deploy Broadsea, register source, and run Achilles (~10 minutes)
+bash ./deploy.sh
 ```
 
 **What this does:**
-1. ✅ Deploys PostgreSQL with OMOP CDM v5.4
-2. ✅ Loads vocabulary (~5M concepts)
+1. ✅ Deploys PostgreSQL with OMOP CDM v5.4 schema
+2. ✅ Loads vocabulary (~5M concepts) into the database
 3. ✅ Generates 100 synthetic ICU patients
 4. ✅ Deploys Broadsea stack (Atlas DB, WebAPI, Atlas UI)
 5. ✅ Registers OMOP CDM as data source
@@ -147,20 +153,20 @@ chmod +x scripts/*.sh
 
 **Expected timeline:**
 - PostgreSQL startup: 1 min
-- Vocabulary loading: 3-5 min
-- ICU data generation: 2-3 min
+- Vocabulary loading: 10-20 min
+- ICU data generation: 5-10 min
 - Broadsea deployment: 2-3 min
 - WebAPI initialization: 1-2 min
 - Source registration: 10 sec
 - Achilles analysis: 2-5 min
-- **Total: 15-20 minutes**
+- **Total: ~20-30 minutes**
 
 ### ✅ Verify Deployment
 
 After deployment completes, run automated verification:
 
 ```bash
-./scripts/verify-deployment.sh
+bash ./scripts/verify-deployment.sh
 ```
 
 **Expected output:**
@@ -229,7 +235,7 @@ curl "http://localhost:8080/WebAPI/vocabulary/INDICATE/search?query=sepsis" | jq
 To remove everything and start fresh:
 
 ```bash
-./scripts/cleanup.sh
+./scripts/clean-up.sh
 ```
 
 Type `yes` when prompted. This removes all containers, volumes, and networks.
@@ -277,20 +283,24 @@ ls -lh vocabulary_download_v5*.zip
 **Expected output:**
 ```
 =====================================================
-INDICATE SPE: Vocabulary Loading
+INDICATE SPE: Vocabulary Load Process
 =====================================================
 
-Step 1: Extracting vocabulary files...
-   ✓ Extracted 15 CSV files
+1. Checking PostgreSQL container status...
+   ✓ Container is running
 
-Step 2: Loading vocabulary tables...
-   ✓ CONCEPT: ~4.8M rows
-   ✓ VOCABULARY: 74 rows
-   ✓ DOMAIN: 50 rows
+2. Checking vocabulary files...
+   ✓ All 9 required vocabulary files present
+
+3. Copying vocabulary files into container...
+   ✓ Files copied successfully
+
+4. Loading vocabulary tables (this will take 20-30 minutes)...
    ...
 
-Step 3: Verification...
-   ✓ Total concepts: 4,892,345
+=====================================================
+VOCABULARY LOAD COMPLETE!
+=====================================================
 ```
 
 #### 1.4 Generate ICU Data
@@ -786,8 +796,9 @@ docker exec -it indicate-postgres-omop psql -U postgres -d omop_cdm \
 The system can handle more data by adjusting:
 
 ```python
-# In generate_icu_data.py, line ~50
-NUM_PATIENTS = 1000  # Increase from 100
+# In generate_icu_data.py, lines 734-735
+generator.generate_persons(n_patients=1000)
+visits = generator.generate_icu_visits(n_patients=1000)
 
 # Expected Achilles runtime:
 # 100 patients: 2-5 minutes
@@ -806,7 +817,7 @@ NUM_PATIENTS = 1000  # Increase from 100
    - Atlas DB: `postgres`/`mypass`
 
 2. **Implement authentication:**
-   - WebAPI: Currently uses `AtlasRegularSecurity` (minimal)
+   - WebAPI: Currently uses `DisabledSecurity` (no authentication)
    - Integrate with Azure AD, LDAP, or other IdP
 
 3. **Enable TLS/SSL:**
