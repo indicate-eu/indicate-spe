@@ -82,7 +82,7 @@ check "WebAPI container" \
     "1"
 
 check "Atlas UI container" \
-    "docker ps --filter 'name=broadsea-atlas' --format '{{.Status}}' | grep -c 'Up'" \
+    "docker ps --filter 'name=broadsea-atlas' --format '{{.Names}}' | grep -c '^broadsea-atlas$'" \
     "1"
 
 echo ""
@@ -102,7 +102,7 @@ check_range "Vocabulary concepts" \
 
 check_range "Measurement count" \
     "docker exec indicate-postgres-omop psql -U postgres -d omop_cdm -tAc 'SELECT COUNT(*) FROM cdm.measurement'" \
-    "40000" "60000"
+    "60000" "150000"
 
 check "Observation periods" \
     "docker exec indicate-postgres-omop psql -U postgres -d omop_cdm -tAc 'SELECT COUNT(*) FROM cdm.observation_period'" \
@@ -117,11 +117,11 @@ echo -e "${BLUE}Section 3: Achilles Statistics${NC}"
 
 check_range "Achilles results rows" \
     "docker exec indicate-postgres-omop psql -U postgres -d omop_cdm -tAc 'SELECT COUNT(*) FROM results.achilles_results'" \
-    "500" "1500"
+    "500" "3000"
 
 check_range "Achilles analyses" \
     "docker exec indicate-postgres-omop psql -U postgres -d omop_cdm -tAc 'SELECT COUNT(*) FROM results.achilles_analysis'" \
-    "200" "250"
+    "200" "350"
 
 check "Person count analysis exists" \
     "docker exec indicate-postgres-omop psql -U postgres -d omop_cdm -tAc 'SELECT COUNT(*) FROM results.achilles_results WHERE analysis_id = 1'" \

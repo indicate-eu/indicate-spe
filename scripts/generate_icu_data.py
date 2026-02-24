@@ -89,6 +89,7 @@ class ICUDataGenerator:
             'cdm.measurement',
             'cdm.observation',
             'cdm.condition_occurrence',
+            'cdm.observation_period',
             'cdm.visit_occurrence',
             'cdm.person'
         ]
@@ -625,6 +626,34 @@ class ICUDataGenerator:
         self.conn.commit()
         print(f"   ✓ Created {len(procedures)} procedure records")
     
+    def generate_observation_periods(self, visits: List):
+        """Generate OBSERVATION_PERIOD - required by OMOP CDM and Achilles."""
+        print("\n9. Generating observation periods...")
+
+        obs_periods = []
+        for i, visit in enumerate(visits):
+            person_id = visit[1]
+            obs_start = visit[3]   # visit_start_date (date)
+            obs_end = visit[5]     # visit_end_date (date)
+
+            obs_periods.append((
+                i + 1,      # observation_period_id
+                person_id,  # person_id
+                obs_start,  # observation_period_start_date
+                obs_end,    # observation_period_end_date
+                32817,      # period_type_concept_id (EHR)
+            ))
+
+        insert_query = """
+            INSERT INTO cdm.observation_period (
+                observation_period_id, person_id, observation_period_start_date,
+                observation_period_end_date, period_type_concept_id
+            ) VALUES (%s, %s, %s, %s, %s)
+        """
+        self.cursor.executemany(insert_query, obs_periods)
+        self.conn.commit()
+        print(f"   ✓ Created {len(obs_periods)} observation periods")
+
     def _insert_measurements_batch(self, measurements):
         """Helper to insert measurement batches."""
         insert_query = """
@@ -733,6 +762,7 @@ def main():
         # Generate data
         generator.generate_persons(n_patients=100)
         visits = generator.generate_icu_visits(n_patients=100)
+        generator.generate_observation_periods(visits)
         generator.generate_conditions(visits)
         generator.generate_vital_signs(visits)
         generator.generate_laboratory_results(visits)
